@@ -124,7 +124,7 @@ if (!isset($_SESSION['name']))
             <td>Call Allocation *</td>
             <td><select name="callallocation" id="callallocation" required>
                 @foreach($data1 as $row)
-          <Option value="{{$row->name}}">{{$row->name}}
+          <Option value="{{$row->id}}">{{$row->name}}
           @endforeach
               </select>
             </td>
