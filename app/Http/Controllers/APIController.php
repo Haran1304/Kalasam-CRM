@@ -80,57 +80,67 @@ class APIController extends Controller
         $fromDate = $request->input('from_date');
         $toDate = $request->input('to_date');
 
-        if ($fromDate && $toDate) {
-            $toDate = \Carbon\Carbon::parse($toDate)->endOfDay(); // Include the end of the selected day
-            $callsToday = KCallRegister::whereBetween('Ncalldate', [$fromDate, $toDate])
-                ->where(function ($query) use ($data) {
-                    $query->where('staff_id', $data->id) // Calls created by this staff
-                        ->orWhere('callallocation', $data->id); // Calls allocated to this staff
-                })
-                ->where('status', 'Pending')
-                ->orderBy('Ncalldate', 'desc')
-                ->get()
-                ->groupBy(function ($item) {
-                    return $item['cust_id'] . '-' . $item['billtype'];
-                })
-                ->map(function ($group) {
-                    return $group->first();
-                });
+        if ($data->usertype === "Staff") {
+            // Staff: Only show calls created by or allocated to this staff
+            if ($fromDate && $toDate) {
+                $toDate = \Carbon\Carbon::parse($toDate)->endOfDay(); // Include the end of the selected day
+                $callsToday = KCallRegister::whereBetween('Ncalldate', [$fromDate, $toDate])
+                    ->where(function ($query) use ($data) {
+                        $query->where('staff_id', $data->id) // Calls created by this staff
+                            ->orWhere('callallocation', $data->id); // Calls allocated to this staff
+                    })
+                    ->where('status', 'Pending')
+                    ->orderBy('Ncalldate', 'desc')
+                    ->get()
+                    ->groupBy(function ($item) {
+                        return $item['cust_id'] . '-' . $item['billtype'];
+                    })
+                    ->map(function ($group) {
+                        return $group->first();
+                    });
+            } else {
+                $callsToday = KCallRegister::whereDate('Ncalldate', $today)
+                    ->where(function ($query) use ($data) {
+                        $query->where('staff_id', $data->id) // Calls created by this staff
+                            ->orWhere('callallocation', $data->id); // Calls allocated to this staff
+                    })
+                    ->where('status', 'Pending')
+                    ->orderBy('Ncalldate', 'desc')
+                    ->get()
+                    ->groupBy(function ($item) {
+                        return $item['cust_id'] . '-' . $item['billtype'];
+                    })
+                    ->map(function ($group) {
+                        return $group->first();
+                    });
+            }
         } else {
-            $callsToday = KCallRegister::whereDate('Ncalldate', $today)
-                ->where(function ($query) use ($data) {
-                    $query->where('staff_id', $data->id) // Calls created by this staff
-                        ->orWhere('callallocation', $data->id); // Calls allocated to this staff
-                })
-                ->where('status', 'Pending')
-                ->orderBy('Ncalldate', 'desc')
-                ->get()
-                ->groupBy(function ($item) {
-                    return $item['cust_id'] . '-' . $item['billtype'];
-                })
-                ->map(function ($group) {
-                    return $group->first();
-                });
+            // Admin: Show all calls
+            if ($fromDate && $toDate) {
+                $toDate = \Carbon\Carbon::parse($toDate)->endOfDay(); // Include the end of the selected day
+                $callsToday = KCallRegister::whereBetween('Ncalldate', [$fromDate, $toDate])
+                    ->where('status', 'Pending')
+                    ->orderBy('Ncalldate', 'desc')
+                    ->get()
+                    ->groupBy(function ($item) {
+                        return $item['cust_id'] . '-' . $item['billtype'];
+                    })
+                    ->map(function ($group) {
+                        return $group->first();
+                    });
+            } else {
+                $callsToday = KCallRegister::whereDate('Ncalldate', $today)
+                    ->where('status', 'Pending')
+                    ->orderBy('Ncalldate', 'desc')
+                    ->get()
+                    ->groupBy(function ($item) {
+                        return $item['cust_id'] . '-' . $item['billtype'];
+                    })
+                    ->map(function ($group) {
+                        return $group->first();
+                    });
+            }
         }
-
-        // Filter out calls that are not the latest for each customer
-        $latestCalls = KCallRegister::where('status', 'Pending')
-            ->where(function ($query) use ($data) {
-                $query->where('staff_id', $data->id) // Calls created by this staff
-                    ->orWhere('callallocation', $data->id); // Calls allocated to this staff
-            })
-            ->orderBy('Ncalldate', 'desc')
-            ->get()
-            ->groupBy(function ($item) {
-                return $item['cust_id'] . '-' . $item['billtype'];
-            })
-            ->map(function ($group) {
-                return $group->first();
-            });
-
-        $callsToday = $callsToday->filter(function ($call) use ($latestCalls) {
-            return $call->id == $latestCalls[$call['cust_id'] . '-' . $call['billtype']]->id;
-        });
 
         return view('homepage', compact('data', 'callsToday', 'fromDate', 'toDate'));
     }
@@ -525,20 +535,34 @@ class APIController extends Controller
             return redirect('/');
         }
 
-        // Filter calls based on the logged-in staff
-        $calls = KCallRegister::with('custname', 'staffname')
-            ->where(function ($query) use ($data) {
-                $query->where('staff_id', $data->id) // Calls created by this staff
-                    ->orWhere('callallocation', $data->id); // Calls allocated to this staff
-            })
-            ->orderBy('call_date', 'desc')
-            ->get()
-            ->groupBy(function ($item) {
-                return $item['cust_id'] . '-' . $item['billtype'];
-            })
-            ->map(function ($group) {
-                return $group->first();
-            });
+        // Check if the user is staff or admin
+        if ($data->usertype === "Staff") {
+            // Staff: Only show calls created by or allocated to this staff
+            $calls = KCallRegister::with('custname', 'staffname')
+                ->where(function ($query) use ($data) {
+                    $query->where('staff_id', $data->id) // Calls created by this staff
+                        ->orWhere('callallocation', $data->id); // Calls allocated to this staff
+                })
+                ->orderBy('call_date', 'desc')
+                ->get()
+                ->groupBy(function ($item) {
+                    return $item['cust_id'] . '-' . $item['billtype'];
+                })
+                ->map(function ($group) {
+                    return $group->first();
+                });
+        } else {
+            // Admin: Show all calls
+            $calls = KCallRegister::with('custname', 'staffname')
+                ->orderBy('call_date', 'desc')
+                ->get()
+                ->groupBy(function ($item) {
+                    return $item['cust_id'] . '-' . $item['billtype'];
+                })
+                ->map(function ($group) {
+                    return $group->first();
+                });
+        }
 
         $cust = KCustomerRegister::select(
             'comname as label',
