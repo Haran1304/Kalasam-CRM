@@ -83,6 +83,10 @@ class APIController extends Controller
         if ($fromDate && $toDate) {
             $toDate = \Carbon\Carbon::parse($toDate)->endOfDay(); // Include the end of the selected day
             $callsToday = KCallRegister::whereBetween('Ncalldate', [$fromDate, $toDate])
+                ->where(function ($query) use ($data) {
+                    $query->where('staff_id', $data->id) // Calls created by this staff
+                        ->orWhere('callallocation', $data->id); // Calls allocated to this staff
+                })
                 ->where('status', 'Pending')
                 ->orderBy('Ncalldate', 'desc')
                 ->get()
@@ -94,6 +98,10 @@ class APIController extends Controller
                 });
         } else {
             $callsToday = KCallRegister::whereDate('Ncalldate', $today)
+                ->where(function ($query) use ($data) {
+                    $query->where('staff_id', $data->id) // Calls created by this staff
+                        ->orWhere('callallocation', $data->id); // Calls allocated to this staff
+                })
                 ->where('status', 'Pending')
                 ->orderBy('Ncalldate', 'desc')
                 ->get()
@@ -107,6 +115,10 @@ class APIController extends Controller
 
         // Filter out calls that are not the latest for each customer
         $latestCalls = KCallRegister::where('status', 'Pending')
+            ->where(function ($query) use ($data) {
+                $query->where('staff_id', $data->id) // Calls created by this staff
+                    ->orWhere('callallocation', $data->id); // Calls allocated to this staff
+            })
             ->orderBy('Ncalldate', 'desc')
             ->get()
             ->groupBy(function ($item) {
@@ -512,8 +524,13 @@ class APIController extends Controller
         } else {
             return redirect('/');
         }
-        $calls = KCallRegister::with('custname')
-            ->with('staffname')
+
+        // Filter calls based on the logged-in staff
+        $calls = KCallRegister::with('custname', 'staffname')
+            ->where(function ($query) use ($data) {
+                $query->where('staff_id', $data->id) // Calls created by this staff
+                    ->orWhere('callallocation', $data->id); // Calls allocated to this staff
+            })
             ->orderBy('call_date', 'desc')
             ->get()
             ->groupBy(function ($item) {
@@ -527,8 +544,8 @@ class APIController extends Controller
             'comname as label',
             'comname as value',
             'id as values'
-        )
-            ->get();
+        )->get();
+
         $phoneno = KCallRegister::select(
             'phoneno as label',
             'phoneno as value',
@@ -536,7 +553,15 @@ class APIController extends Controller
         )
             ->groupBy('phoneno')
             ->get();
+
         $staff = KCallRegister::distinct()->whereNotNull('callallocation')->get(['callallocation']);
+
+        // Fetch callallocation users
+        $callallocationUsers = KCallRegister::whereNotNull('callallocation')
+            ->join('users', 'k_call_registers.callallocation', '=', 'users.id')
+            ->select('users.id', 'users.name')
+            ->get();
+
         $val = array();
         $val['FDate'] = now()->day;
         $val['TDate'] = now()->day;
@@ -546,7 +571,15 @@ class APIController extends Controller
         $val['cust_id'] = '';
         $val['phoneno'] = '';
         $val['callallocation'] = '';
-        return view('Calls/ledgerwisereport', compact('calls'), ['data' => $data, 'cust' => $cust, 'phoneno' => $phoneno, 'staff' => $staff, 'val' => $val]);
+
+        return view('Calls/ledgerwisereport', compact('calls'), [
+            'data' => $data,
+            'cust' => $cust,
+            'phoneno' => $phoneno,
+            'staff' => $staff,
+            'val' => $val,
+            'callallocationUsers' => $callallocationUsers, // Pass the user data to the view
+        ]);
     }
     public function ledgerwisereport(Request $request)
     {
