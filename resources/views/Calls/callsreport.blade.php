@@ -174,29 +174,34 @@ if (!isset($_SESSION['name']))
       $i = 1;
     @endphp
         @foreach($calls as $row)
-      <tr>
-        <td>
-        <input type="checkbox" id="checkbox" name="checkboxval[]" value='{{$row->id}}'>
-        </td>
-        <td>{{$i++}}</td>
-        <td>{{$row->call_date}}</td>
-        <td>{{$row->custname->comname}}</td>
-        <td>{{$row->phoneno}}</td>
-        <td>{{$row->conperson}}</td>
-        <td>{{$row->work}}</td>
-        <td>{{$row->staffname->name}}</td>
-        <td>{{$row->callallocation}}</td>
-        <td>{{$row->status}}</td>
-        <td>{{$row->remarks}}</td>
-        <td>{{$row->custname->serialNo}}</td>
-        <td>{{$row->Ncalldate}}</td>
-        <td>{{$row->billtype}}</td>
-        <td>{{$row->completeperson}}</td>
-        <td>{{$row->completeddate}}</td>
-        <td><a href="{{route('editcalls', [$row->id])}}">Edit</a></td>
-        <td><a href="{{route('alter', [$row->id])}}">Update</a></td>
-        <td><a href="{{route('delete', [$row->id])}}">Delete</a></td>
-      </tr>
+          <tr>
+            <td>
+            <input type="checkbox" id="checkbox" name="checkboxval[]" value='{{$row->id}}'>
+            </td>
+            <td>{{$i++}}</td>
+            <td>{{$row->call_date}}</td>
+            <td>{{$row->custname->comname}}</td>
+            <td>{{$row->phoneno}}</td>
+            <td>{{$row->conperson}}</td>
+            <td>{{$row->work}}</td>
+            <td>{{$row->staffname->name}}</td>
+            <td>
+            @php
+        $user = collect($callallocationUsers)->firstWhere('id', $row->callallocation);
+      @endphp
+            {{$user ? $user['name'] : 'N/A'}}
+            </td>
+            <td>{{$row->status}}</td>
+            <td>{{$row->remarks}}</td>
+            <td>{{$row->custname->serialNo}}</td>
+            <td>{{$row->Ncalldate}}</td>
+            <td>{{$row->billtype}}</td>
+            <td>{{$row->completeperson}}</td>
+            <td>{{$row->completeddate}}</td>
+            <td><a href="{{route('editcalls', [$row->id])}}">Edit</a></td>
+            <td><a href="{{route('alter', [$row->id])}}">Update</a></td>
+            <td><a href="{{route('delete', [$row->id])}}">Delete</a></td>
+          </tr>
     @endforeach
       </table>
   </form>
@@ -223,5 +228,7 @@ if (!isset($_SESSION['name']))
 </script>
 
 <script>
-  console.log(@json($data), "All Calls");
+  var data = @json($callallocationUsers);
+  console.log(data);
+
 </script>

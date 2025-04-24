@@ -202,7 +202,8 @@ class APIController extends Controller
         if ($data->usertype === "Staff") {
             // Only show calls created by this staff user
             $calls = KCallRegister::with('custname', 'staffname')
-                ->where('staff_id', $data->id) // adjust if your column name is different
+                ->where('staff_id', $data->id)
+                ->orWhere('callallocation', $data->id) // corrected property name for call allocation
                 ->get();
         } else {
             // Admin sees all calls
@@ -225,6 +226,13 @@ class APIController extends Controller
 
         $staff = KCallRegister::distinct()->whereNotNull('callallocation')->get(['callallocation']);
 
+        $callallocationUsers = KCallRegister::whereNotNull('callallocation')
+            ->join('users', 'k_call_registers.callallocation', '=', 'users.id') // Join with the users table
+            ->select('users.id', 'users.name') // Select only the user IDs
+            ->get();
+
+        // You can now use $callallocationUsers to access the user data
+
         $val = [
             'FDate' => now()->day,
             'TDate' => now()->day,
@@ -242,6 +250,7 @@ class APIController extends Controller
             'phoneno' => $phoneno,
             'staff' => $staff,
             'val' => $val,
+            'callallocationUsers' => $callallocationUsers, // Pass the user data to the view
         ]);
     }
     public function addcall()
