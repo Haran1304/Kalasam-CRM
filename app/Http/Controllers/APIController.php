@@ -325,8 +325,7 @@ class APIController extends Controller
     }
     public function addcustomer(Request $request)
     {
-        $test2 = KCustomerRegister::where('comname', $request->comname)
-            ->get();
+        $test2 = KCustomerRegister::where('comname', $request->comname)->get();
         if (count($test2) > 0) {
             echo "Already available";
             return;
@@ -345,24 +344,35 @@ class APIController extends Controller
             $cust->pack = $request->pack;
             $cust->billtype = $request->billtype;
             $cust->software = $request->software;
-            //print_r($cust);
+            $cust->whatsapp = $request->whatsapp;
+            $cust->whatsapp_location = $request->whatsapp_location;
+
+            // Handle file upload for visiting card
+            if ($request->hasFile('visiting_card')) {
+                $file = $request->file('visiting_card');
+                $filename = time() . '_' . $file->getClientOriginalName();
+                $file->move(public_path('uploads/visiting_cards'), $filename);
+                $cust->visiting_card = $filename;
+            }
+
+            $cust->owner_number = $request->owner_number;
+            $cust->customer_location = $request->customer_location;
+            $cust->customer_address = $request->customer_address;
+            $cust->district = $request->district;
+            $cust->expiry_date = $request->expiry_date;
+            $cust->auditor_name = $request->auditor_name;
+            $cust->auditor_mobile = $request->auditor_mobile;
+            $cust->engineer_name = $request->engineer_name;
+            $cust->engineer_mobile = $request->engineer_mobile;
+            $cust->engineer_location = $request->engineer_location;
+
             $cust->save();
             DB::commit();
-            $data = array();
-            if (Session::has('loginId')) {
-                $data = User::where('id', '=', Session::get('loginId'))->first();
-            } else {
-                return redirect('/');
-            }
-            $str_random = Str::random(12);
-            return view('Customer/addcustomer', compact('str_random'));
+            return redirect()->route('addcust')->with('success', 'Customer added successfully!');
         } catch (\Exception $e) {
-            $result = array();
-            $result['success'] = 0;
-            $result['data'] = $e;
-            return json_encode($result);
+            DB::rollBack();
+            return back()->with('error', $e->getMessage());
         }
-
     }
     public function callregister(Request $request)
     {
